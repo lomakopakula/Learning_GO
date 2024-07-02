@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"os"
 )
 
@@ -69,7 +70,23 @@ func main() {
 			log.Fatalf("Unable to convert map to JSON: %s\n", err)
 		}
 
-		fmt.Println(string(usersJson))
+		//fmt.Println(string(usersJson))
+
+		resp, err := http.Post("http://localhost:8080/users", "application/json", bytes.NewBuffer(usersJson))
+
+		if err != nil {
+			fmt.Printf("Error sending POST request: %s\n", err)
+		}
+
+		defer resp.Body.Close()
+
+		body, err := io.ReadAll(resp.Body)
+
+		if err != nil {
+			fmt.Printf("Error reading request response: %s\n", err)
+		}
+
+		fmt.Println(string(body))
 	}
 }
 
