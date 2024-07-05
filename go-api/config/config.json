@@ -1,0 +1,14 @@
+{
+    "database": {
+        "driver": "postgres",
+        "user": "postgres",
+        "password": "secretdbpassword",
+        "address": "localhost",
+        "port": "5432",
+        "name": "users",
+        "ssl_mode": "disable"
+    },
+    "server": {
+        "port": "8080"
+    }
+}
