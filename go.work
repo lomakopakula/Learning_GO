@@ -1,5 +1,7 @@
 go 1.22.3
 
-use ./http_server
-
-use ./read_csv
+use (
+	./go-api
+	./read_csv
+	./http_server
+)
