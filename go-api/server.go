@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/mail"
 	"os"
 
 	_ "github.com/lib/pq"
@@ -101,18 +102,14 @@ func handleRegister(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		exists, err := user.checkUserExist(db)
+		user.Email, err = user.checkEmail()
 		if err != nil {
-			handleHTTPError(err, "internal server error - unable to verify users", w, http.StatusInternalServerError)
+			emailError := "invalid email address: " + user.Email
+			handleHTTPError(err, emailError, w, http.StatusBadRequest)
 			return
 		}
 
-		if exists {
-			handleHTTPError(err, "username already exists", w, http.StatusConflict)
-			return
-		}
-
-		exists, err = user.checkEMailExist(db)
+		exists, err := user.checkEMailExist(db)
 		if err != nil {
 			handleHTTPError(err, "internal server error - unable to verify email", w, http.StatusInternalServerError)
 			return
@@ -120,6 +117,17 @@ func handleRegister(db *sql.DB) http.HandlerFunc {
 
 		if exists {
 			handleHTTPError(err, "email already exists", w, http.StatusConflict)
+			return
+		}
+
+		exists, err = user.checkUserExist(db)
+		if err != nil {
+			handleHTTPError(err, "internal server error - unable to verify users", w, http.StatusInternalServerError)
+			return
+		}
+
+		if exists {
+			handleHTTPError(err, "username already exists", w, http.StatusConflict)
 			return
 		}
 
@@ -168,6 +176,12 @@ func (user *User) checkUserExist(db *sql.DB) (bool, error) {
 	}
 
 	return exists, err
+}
+
+func (user *User) checkEmail() (string, error) {
+	email, err := mail.ParseAddress(user.Email)
+
+	return email.Address, err
 }
 
 func (user *User) checkEMailExist(db *sql.DB) (bool, error) {
