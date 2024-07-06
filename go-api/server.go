@@ -104,7 +104,8 @@ func handleRegister(db *sql.DB) http.HandlerFunc {
 
 		email, err := user.checkEmail()
 		if err != nil || email != user.Email {
-			handleHTTPError(err, "invalid email", w, http.StatusBadRequest)
+			w.Header().Set("Content-Type", "application/json")
+			http.Error(w, `"error":"invalid email"`, http.StatusBadRequest)
 			return
 		}
 
