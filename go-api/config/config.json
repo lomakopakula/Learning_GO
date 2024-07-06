@@ -3,7 +3,7 @@
         "driver": "postgres",
         "user": "postgres",
         "password": "secretdbpassword",
-        "address": "workspace-db-1",
+        "address": "172.20.0.1",
         "port": "5432",
         "name": "users",
         "ssl_mode": "disable"
