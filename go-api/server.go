@@ -121,15 +121,26 @@ func handleDeleteUser(db *sql.DB) http.HandlerFunc {
 			}
 
 			dbDeleteStr := `DELETE FROM userData WHERE username = $1`
-			_, err = db.Exec(dbDeleteStr, user.Username)
+			result, err := db.Exec(dbDeleteStr, user.Username)
 			if err != nil {
 				handleHTTPError("internal server error - unable to delete user", w, http.StatusInternalServerError)
 				return
 			}
 
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"message":"User deleted"}`))
+			rowsAffected, err := result.RowsAffected()
+			if err != nil {
+				handleHTTPError("internal server error - unable to delete user", w, http.StatusInternalServerError)
+				return
+			}
+
+			if rowsAffected == 0 {
+				handleHTTPError("user not found", w, http.StatusBadRequest)
+				return
+			} else {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(`{"message":"User deleted"}`))
+			}
 		}
 	}
 }
