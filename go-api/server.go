@@ -103,8 +103,10 @@ func handleDeleteUser(db *sql.DB) http.HandlerFunc {
 			}
 
 			if !exists {
-				handleHTTPError("username already exists", w, http.StatusConflict)
+				handleHTTPError("username does not exists", w, http.StatusConflict)
 				return
+			} else {
+				w.Write([]byte("user exists and will be deleted"))
 			}
 
 			var hashedPassword string
@@ -114,6 +116,8 @@ func handleDeleteUser(db *sql.DB) http.HandlerFunc {
 				handleHTTPError("internal server error - unable to fetch user data", w, http.StatusInternalServerError)
 				return
 			}
+
+			w.Write([]byte(hashedPassword))
 
 			if err = bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(user.Password)); err != nil {
 				handleHTTPError("incorrect password", w, http.StatusInternalServerError)
