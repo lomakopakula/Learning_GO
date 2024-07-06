@@ -89,62 +89,61 @@ type User struct {
 func handleDeleteUser(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			var user User
-			err := json.NewDecoder(r.Body).Decode(&user)
-			if err != nil {
-				handleHTTPError("invalid request body", w, http.StatusBadRequest)
-				return
-			}
+			handleHTTPError("invalid method", w, http.StatusBadRequest)
+			return
+		}
 
-			exists, err := user.checkUserExist(db)
-			if err != nil {
-				handleHTTPError("internal server error - unable to verify users", w, http.StatusInternalServerError)
-				return
-			}
+		var user User
+		err := json.NewDecoder(r.Body).Decode(&user)
+		if err != nil {
+			handleHTTPError("invalid request body", w, http.StatusBadRequest)
+			return
+		}
 
-			if !exists {
-				handleHTTPError("username does not exists", w, http.StatusConflict)
-				return
-			} else {
-				w.Write([]byte("user exists and will be deleted"))
-			}
+		exists, err := user.checkUserExist(db)
+		if err != nil {
+			handleHTTPError("internal server error - unable to verify users", w, http.StatusInternalServerError)
+			return
+		}
 
-			var hashedPassword string
-			dbSelectStr := `SELECT hashedpassword FROM userData WHERE username = $1`
-			err = db.QueryRow(dbSelectStr, user.Username).Scan(&hashedPassword)
-			if err != nil {
-				handleHTTPError("internal server error - unable to fetch user data", w, http.StatusInternalServerError)
-				return
-			}
+		if !exists {
+			handleHTTPError("username does not exists", w, http.StatusConflict)
+			return
+		}
 
-			w.Write([]byte(hashedPassword))
+		var hashedPassword string
+		dbSelectStr := `SELECT hashedpassword FROM userData WHERE username = $1`
+		err = db.QueryRow(dbSelectStr, user.Username).Scan(&hashedPassword)
+		if err != nil {
+			handleHTTPError("internal server error - unable to fetch user data", w, http.StatusInternalServerError)
+			return
+		}
 
-			if err = bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(user.Password)); err != nil {
-				handleHTTPError("incorrect password", w, http.StatusInternalServerError)
-				return
-			}
+		if err = bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(user.Password)); err != nil {
+			handleHTTPError("incorrect password", w, http.StatusInternalServerError)
+			return
+		}
 
-			dbDeleteStr := `DELETE FROM userData WHERE username = $1`
-			result, err := db.Exec(dbDeleteStr, user.Username)
-			if err != nil {
-				handleHTTPError("internal server error - unable to delete user", w, http.StatusInternalServerError)
-				return
-			}
+		dbDeleteStr := `DELETE FROM userData WHERE username = $1`
+		result, err := db.Exec(dbDeleteStr, user.Username)
+		if err != nil {
+			handleHTTPError("internal server error - unable to delete user", w, http.StatusInternalServerError)
+			return
+		}
 
-			rowsAffected, err := result.RowsAffected()
-			if err != nil {
-				handleHTTPError("internal server error - unable to delete user", w, http.StatusInternalServerError)
-				return
-			}
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			handleHTTPError("internal server error - unable to delete user", w, http.StatusInternalServerError)
+			return
+		}
 
-			if rowsAffected == 0 {
-				handleHTTPError("user not found", w, http.StatusBadRequest)
-				return
-			} else {
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(`{"message":"User deleted"}`))
-			}
+		if rowsAffected == 0 {
+			handleHTTPError("user not found", w, http.StatusBadRequest)
+			return
+		} else {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"message":"User deleted"}`))
 		}
 	}
 }
