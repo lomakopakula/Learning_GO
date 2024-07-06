@@ -102,10 +102,10 @@ func handleRegister(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		email, err := user.checkEmail()
-		if err != nil || email != user.Email {
-			w.Header().Set("Content-Type", "application/json")
-			http.Error(w, `"error":"invalid email"`, http.StatusBadRequest)
+		email, err := mail.ParseAddress(user.Email)
+		if err != nil || user.Email != email.Address {
+			emailError := fmt.Sprintf("invalid email: %s", err)
+			handleHTTPError(err, emailError, w, http.StatusBadRequest)
 			return
 		}
 
@@ -176,12 +176,6 @@ func (user *User) checkUserExist(db *sql.DB) (bool, error) {
 	}
 
 	return exists, err
-}
-
-func (user *User) checkEmail() (string, error) {
-	email, err := mail.ParseAddress(user.Email)
-
-	return email.Address, err
 }
 
 func (user *User) checkEMailExist(db *sql.DB) (bool, error) {
