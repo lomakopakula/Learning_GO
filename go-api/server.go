@@ -33,6 +33,7 @@ func main() {
 	router := http.NewServeMux()
 
 	router.HandleFunc("/register", handleRegister(db))
+	router.HandleFunc("/user/delete", handleDeleteUser(db))
 
 	serverPort := ":" + config.Server.Port
 
@@ -85,6 +86,54 @@ type User struct {
 	Email          string `json:"email"`
 }
 
+func handleDeleteUser(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			var user User
+			err := json.NewDecoder(r.Body).Decode(&user)
+			if err != nil {
+				handleHTTPError("invalid request body", w, http.StatusBadRequest)
+				return
+			}
+
+			exists, err := user.checkUserExist(db)
+			if err != nil {
+				handleHTTPError("internal server error - unable to verify users", w, http.StatusInternalServerError)
+				return
+			}
+
+			if !exists {
+				handleHTTPError("username already exists", w, http.StatusConflict)
+				return
+			}
+
+			var hashedPassword string
+			dbSelectStr := `SELECT hashedpassword FROM userData WHERE username = $1`
+			err = db.QueryRow(dbSelectStr, user.Username).Scan(&hashedPassword)
+			if err != nil {
+				handleHTTPError("internal server error - unable to fetch user data", w, http.StatusInternalServerError)
+				return
+			}
+
+			if err = bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(user.Password)); err != nil {
+				handleHTTPError("incorrect password", w, http.StatusInternalServerError)
+				return
+			}
+
+			dbDeleteStr := `DELETE FROM userData WHERE username = $1`
+			_, err = db.Exec(dbDeleteStr, user.Username)
+			if err != nil {
+				handleHTTPError("internal server error - unable to delete user", w, http.StatusInternalServerError)
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"message":"User deleted"}`))
+		}
+	}
+}
+
 func handleRegister(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -98,41 +147,41 @@ func handleRegister(db *sql.DB) http.HandlerFunc {
 		err := json.NewDecoder(r.Body).Decode(&user)
 
 		if err != nil {
-			handleHTTPError(err, "invalid request body", w, http.StatusBadRequest)
+			handleHTTPError("invalid request body", w, http.StatusBadRequest)
 			return
 		}
 
 		email, err := mail.ParseAddress(user.Email)
 		if err != nil || user.Email != email.Address {
-			handleHTTPError(err, "invalid mail", w, http.StatusBadRequest)
+			handleHTTPError("invalid mail", w, http.StatusBadRequest)
 			return
 		}
 
 		exists, err := user.checkEMailExist(db)
 		if err != nil {
-			handleHTTPError(err, "internal server error - unable to verify email", w, http.StatusInternalServerError)
+			handleHTTPError("internal server error - unable to verify email", w, http.StatusInternalServerError)
 			return
 		}
 
 		if exists {
-			handleHTTPError(err, "email already exists", w, http.StatusConflict)
+			handleHTTPError("email already exists", w, http.StatusConflict)
 			return
 		}
 
 		exists, err = user.checkUserExist(db)
 		if err != nil {
-			handleHTTPError(err, "internal server error - unable to verify users", w, http.StatusInternalServerError)
+			handleHTTPError("internal server error - unable to verify users", w, http.StatusInternalServerError)
 			return
 		}
 
 		if exists {
-			handleHTTPError(err, "username already exists", w, http.StatusConflict)
+			handleHTTPError("username already exists", w, http.StatusConflict)
 			return
 		}
 
 		err = user.hashPassword(user.Password)
 		if err != nil {
-			handleHTTPError(err, "internal server error - unable to hash password", w, http.StatusInternalServerError)
+			handleHTTPError("internal server error - unable to hash password", w, http.StatusInternalServerError)
 			return
 		}
 
@@ -141,7 +190,7 @@ func handleRegister(db *sql.DB) http.HandlerFunc {
 		var id int
 		err = db.QueryRow(dbInsertStr, user.Username, user.HashedPassword, user.Email).Scan(&id)
 		if err != nil {
-			handleHTTPError(err, "internal server error - cannot insert to database", w, http.StatusInternalServerError)
+			handleHTTPError("internal server error - cannot insert to database", w, http.StatusInternalServerError)
 			return
 		}
 
@@ -153,10 +202,8 @@ func handleRegister(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-func handleHTTPError(err error, message string, w http.ResponseWriter, statusCode int) {
+func handleHTTPError(message string, w http.ResponseWriter, statusCode int) {
 	jsonError := fmt.Sprintf(`{"error":"%s"}`, message)
-
-	log.Printf("%s: %s\n", message, err)
 
 	w.Header().Set("Content-Type", "application/json")
 
