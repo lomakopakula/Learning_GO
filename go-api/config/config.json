@@ -3,7 +3,7 @@
         "driver": "postgres",
         "user": "postgres",
         "password": "secretdbpassword",
-        "address": "172.20.0.1",
+        "address": "postgresql",
         "port": "5432",
         "name": "users",
         "ssl_mode": "disable"
